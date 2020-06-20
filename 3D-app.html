@@ -1,0 +1,1004 @@
+<html>
+	<head>
+		<title>3D Temperature Modelling</title>
+		<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+		<meta http-equiv="Pragma" content="no-cache" />
+		<meta http-equiv="Expires" content="0" />
+		<style>
+			body { margin: 0; }
+			canvas { display: block; }
+			.frame_slider, .color_slider {
+				-webkit-appearance: none;
+				width:100%;
+				height:15px;
+				border-radius: 5px;
+				background: #d3d3d3;
+				outline: none;
+				opacity: .7;
+				-webkit-transition: .2s;
+				transition: opacity .2s;
+			}
+
+			.frame_slider::-webkit-slider-thumb,
+			.color_slider::-webkit-slider-thumb {
+			  -webkit-appearance: none;
+			  appearance: none;
+			  width: 25px;
+			  height: 25px;
+			  border-radius: 50%;
+			  background: #0000ff;
+			  cursor: pointer;
+			}
+
+			.user_controls {
+				margin-left: auto;
+				margin-right: auto;
+				height:auto;
+				width:80%;
+			}
+
+			.input {
+				margin-top:20px;
+				margin-bottom:20px;
+			}
+
+			.output {
+				position:relative;
+				display:block;
+				margin-top:20px;
+				margin-bottom:20px;
+				width:100%;
+				min-height:15px;
+			}
+
+			.title {
+				text-align:center;
+				margin:10px;
+			}
+
+			.hidden {
+				display:none;
+			}
+
+			.color_slider {
+				float:left;
+				margin:0px;
+				min-height:10px;
+				border-radius:0%;
+				width:50%;
+				position:relative;
+				margin-bottom:20px;
+				visibility:hidden;
+			}
+
+			.color_slider::-webkit-slider-thumb {
+				width:3px;
+				border-radius:0%;
+				background:black;
+				visibility:visible;
+			}
+
+			.bubble {
+				position:relative;
+				text-align: center;
+			}
+
+			.gradient {
+				background: linear-gradient(to right, blue, lime, red);
+			}
+
+		</style>
+	</head>
+	<body>
+		<div class="title">
+			<h1>Vanilla Cloud Compare</h1>
+		</div>
+		<div class="user_controls">
+			<div class="input">
+				<label for="input_files">Input Files: </label>
+				<input type="file" id="input_files" multiple>
+			</div>
+			<div class="output">
+				<label for="output_file">Output File: </label>
+				<button type="button" id="output_file_button" name="output_file">Generate Output File</button>
+				<a href="" id="output_file_link" class="hidden" target="_blank">Download Output File</a>
+			</div>
+			<div class="input">
+				<label for="input_data_category">Data Choice: </label>
+				<select name="data_category" id="input_data_category">
+					<option value="Temp">Raw Temperature</option>
+					<option value="Max">Maxima</option>
+					<option value="Min">Minima</option>
+					<option value="Mean">Mean</option>
+					<option value="Range">Range</option>
+					<option value="Var">Standard Deviation</option>
+				</select>
+			</div>
+			<div id="input_animation">
+				<div class="input">
+					<label for="input_frame_value">Input Frame: </label>
+					<input type="text" id="input_frame_value">
+				</div>
+				<div class="input">
+					<input type="radio" name="play_type" id="fps_radio" value="fps_radio">
+					<label for="fps_radio">FPS</label>
+					<input type="radio" name="play_type" id="stamp_radio" value="stamp_radio">
+					<label for="stamp_radio">Time Stamps</label>
+				</div>
+				<div id="fps_container" class="hidden">
+					<label for="input_fps">Input FPS: </label>
+					<input type="text" id="input_fps">
+				</div>
+				<div class="input">
+					<button type="button" name="play" id="play_button">Play</button>
+					<button type="button" name="play" id="pause_button">Pause</button>
+					<button type="button" name="play" id="reverse_button">Reverse</button>
+				</div>
+				<div class="input">
+					<input type="range" id="input_frame_range" class="frame_slider" value="50" min="0" max="100">
+				</div>
+			</div>
+			<div id="input_static">
+				<div class="input">
+					<button type="button" id="input_static_update">Update</button>
+				</div>
+			</div>
+			<div class="input">
+				<label for="input_color">Coloring Scheme: </label>
+				<select name="colors" id="input_color">
+					<option value="Blue Green Red">Blue Green Red</option>
+					<option value="Yellow Orange Red">Yellow Orange Red</option>
+					<option value="Yellow Green Blue">Yellow Green Blue</option>
+					<option value="Grey">Grey</option>
+					<option value="Purple Red">Purple Red</option>
+					<option value="Black Body">Black Body</option>
+					<option value="Custom">Custom</option>
+				</select>
+			</div>
+			<div class="input">
+				<label for="gradient_1">Color 1:</label>
+				<input type="text" id="gradient_1">
+				<label for="gradient_2">Color 2:</label>
+				<input type="text" id="gradient_2">
+				<label for="gradient_3">Color 3:</label>
+				<input type="text" id="gradient_3">
+			</div>
+			<div class="input">
+				<input type="text" id="left_bubble" class="bubble">
+			</div>
+			<div class="output gradient" id="sliders">
+				<input type="range" class="color_slider" id="left_slider" min="0" max="50">
+				<input type="range" class="color_slider" id="right_slider" min="51" max="100">
+			</div>
+			<div class="input">
+				<input type="text" id="right_bubble" class="bubble">
+			</div>
+			<div class="input">
+				<button type="button" id="start_rotate_button">Start Rotation</button>
+				<button type="button" id="stop_rotate_button">Stop Rotation</button>
+			</div>
+			<div id="pt_size_container" class="input hidden">
+				<label for="input_pt_size">Input Point Size: </label>
+				<input type="text" id="input_pt_size">
+			</div>
+		</div>
+		<script type="module">
+		import * as THREE from './node_modules/three/build/three.module.js';
+		import {OrbitControls} from './node_modules/three/examples/jsm/controls/OrbitControls.js';
+		import {STLLoader} from './node_modules/three/examples/jsm/loaders/STLLoader.js';
+		import {kelvin_to_color} from "./kelvin_to_color.js";
+
+		let scene = new THREE.Scene();
+		scene.background = new THREE.Color(0x808080)
+		let camera = new THREE.PerspectiveCamera( 50,
+			window.innerWidth / window.innerHeight, 0.1, 1000 );
+
+		let renderer = new THREE.WebGLRenderer();
+		renderer.setSize( window.innerWidth, window.innerHeight );
+		document.body.appendChild( renderer.domElement );
+
+		let ambient_light = new THREE.AmbientLight( 0xffffff );
+		scene.add( ambient_light );
+
+		let controls = new OrbitControls( camera, renderer.domElement );
+		camera.position.z = 100;
+
+		// temperatures on each vertex
+		let vertex_temps = {
+			num_temps: -1,
+			min: Infinity,
+			max: -Infinity,
+		};
+
+		let stl_loader = new STLLoader();
+		let pt_loader = new Object();
+		let geometry_reader = new FileReader();
+		let mesh_idx = scene.children.length;
+
+		geometry_reader.is_stl = null;
+		geometry_reader.onload = function (e) {
+			// parse the stl object
+			let geometry, material;
+			if(this.is_stl) {
+				geometry = stl_loader.parse(e.target.result);
+				material = new THREE.MeshBasicMaterial(
+					{ vertexColors: THREE.VertexColors }
+				);
+			}
+			else {
+				geometry = pt_loader.parse(e.target.result);
+				material = new THREE.PointsMaterial(
+					{ vertexColors: THREE.VertexColors, sizeAttenuation: false}
+				);
+			}
+			// initialize color attribute
+			let colors = new Float32Array(geometry.attributes.position.array.length);
+			geometry.setAttribute('color',  new THREE.Float32BufferAttribute( colors, 3 ) );
+			geometry.center();
+			// set the material color to the color array
+			mesh_idx = scene.children.length;
+			if(this.is_stl) {scene.add(new THREE.Mesh(geometry, material));}
+			else {scene.add(new THREE.Points(geometry, material));}
+		}
+
+		pt_loader.parse = function (file_text) {
+			let geometry = new THREE.BufferGeometry();
+			let csv_to_arr = file_text.split(/[,\n]+/);
+			if(csv_to_arr.length == 0) { return geometry; }
+			if(csv_to_arr[csv_to_arr.length - 1] == "") {csv_to_arr.pop();}
+			let vertices = new Float32Array(csv_to_arr);
+			geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+			return geometry;
+		}
+
+		let temp_reader = new FileReader();
+		temp_reader.is_txt = null;
+		temp_reader.onload = function(e) {
+			if(this.is_txt) { this.parse_txt(e.target.result); }
+			else { this.parse_csv(e.target.result); }
+
+			input_frame_range.max = vertex_temps.num_temps - 1;
+
+			left_slider.min = vertex_temps.min;
+			right_slider.max = vertex_temps.max;
+
+			if(vertex_temps.max - vertex_temps.min > 3) {
+				left_slider.max = Math.floor((vertex_temps.min + vertex_temps.max)/2);
+				right_slider.min = Math.floor((vertex_temps.min + vertex_temps.max)/2) + 1;
+			}
+			else {
+				left_slider.max = Math.floor((vertex_temps.min + vertex_temps.max)/2);
+				right_slider.min = Math.floor((vertex_temps.min + vertex_temps.max)/2);
+			}
+
+			input_data_category.value = 'Temp';
+			input_data_category.oninput();
+
+			input_frame_value.value = input_frame_value.min;
+			input_frame_range.value = input_frame_range.min;
+
+			left_slider.value = left_slider.min;
+			left_bubble.value = left_slider.min;
+
+			right_slider.value = right_slider.max;
+			right_bubble.value = right_slider.max;
+
+			right_slider.style.width = '50%';
+			left_slider.style.width = '50%';
+
+			let max_num_width = 2*(right_slider.max.length - 1);
+			if(max_num_width > 5) {
+				right_bubble.style.width = `${max_num_width}%`;
+				left_bubble.style.width = `${max_num_width}%`;
+			}
+
+			animation_control.update_frame();
+		}
+
+		temp_reader.parse_txt = function (file_text) {
+			this.parse(file_text, [' '], ['\n']);
+ 	 	}
+
+		temp_reader.parse_csv = function (file_text) {
+			this.parse(file_text, [','], ['\n']);
+ 	 	}
+
+		temp_reader.parse = function (file_text, temp_delim, point_delim) {
+			 let first_line = 0;
+			 let num_entries = 0;
+
+			 while(first_line < file_text.length && !point_delim.includes(file_text[first_line])) {
+				 if(temp_delim.includes(file_text[first_line++])) { ++num_entries; }
+			 }
+			 if(num_entries == 0) { return; }
+			 vertex_temps.num_temps = num_entries + (!temp_delim.includes(file_text[first_line-1]));
+			 let num_frames = vertex_temps.num_temps;
+			 let num_pts = scene.children[mesh_idx].geometry.attributes.color.array.length/3;
+
+			 vertex_temps.temp_data = new Float32Array(num_frames*num_pts);
+			 vertex_temps.temp_medians = new Float32Array(num_pts);
+			 vertex_temps.temp_means = new Float32Array(num_pts);
+			 vertex_temps.temp_maxima = new Float32Array(num_pts);
+			 vertex_temps.temp_minima = new Float32Array(num_pts);
+			 vertex_temps.temp_std_dev = new Float32Array(num_pts);
+
+			 let curr_pos = 0;
+			 let prev_pos = 0;
+			 let temp = 0;
+
+			 let buffer = new Float32Array(num_frames);
+			 let buffer_mean = 0;
+			 let buffer_min = Infinity;
+			 let buffer_max = -Infinity;
+			 let buff_idx = 0;
+			 let pt_idx = 0;
+
+				while(curr_pos <= file_text.length) {
+					if(curr_pos < file_text.length && !temp_delim.includes(file_text[curr_pos])
+						&& !point_delim.includes(file_text[curr_pos])) { ++curr_pos; continue; }
+
+					let entry = Number(file_text.slice(prev_pos, curr_pos));
+
+					vertex_temps.temp_data[temp++] = entry;
+					buffer[buff_idx++] = entry;
+
+					buffer_mean += entry/vertex_temps.num_temps;
+
+					if(entry < vertex_temps.min) { vertex_temps.min = entry; }
+					if(entry > vertex_temps.max) { vertex_temps.max = entry; }
+
+					if(entry < buffer_min) { buffer_min = entry; }
+					if(entry > buffer_max) { buffer_max = entry; }
+
+					if(point_delim.includes(file_text[curr_pos]) || buff_idx == vertex_temps.num_temps) {
+
+						 vertex_temps.temp_means[pt_idx] = buffer_mean;
+						 vertex_temps.temp_minima[pt_idx] = buffer_min;
+						 vertex_temps.temp_maxima[pt_idx] = buffer_max;
+
+						 // find a faster way to calculate the median?
+						 // vertex_temps.temp_medians[pt_idx] = linear_time_median(buffer);
+
+			 			 let letiance = 0;
+			 			 for(let j = 0; j < buffer.length; ++j) {
+							 letiance += (buffer[j] - buffer_mean)*(buffer[j] - buffer_mean)/buffer.length;
+			 			 }
+						 vertex_temps.temp_std_dev[pt_idx++] = Math.sqrt(letiance);
+
+						 buffer_mean = 0;
+						 buffer_min = Infinity;
+						 buffer_max = -Infinity;
+						 buff_idx = 0;
+
+					}
+
+					while(temp_delim.includes(file_text[curr_pos])) {	++curr_pos;	}
+					prev_pos = curr_pos;
+					++curr_pos;
+			 }
+
+	 }
+
+	 let timestamp_reader = new FileReader();
+
+	 timestamp_reader.onload = function(e) {
+		 let timestamps = e.target.result.split(/\s/).map(Number);
+		 if(timestamps.length == vertex_temps.num_temps) {
+			 animation_control.timestamps = timestamps;
+		 }
+		 else {
+			 alert("Inconsistent number of timestamps in timestamp file.")
+		 }
+	 }
+
+	 let output_writer = new Object();
+
+	 output_writer.init_file_text = function() {
+		 // start with a blank file
+		 output_writer.file_text = '';
+		 let attributes = scene.children[mesh_idx].geometry.attributes;
+		 for(let i = 0; i + 2 < attributes.position.array.length; i += 3) {
+			 // add point coordinates
+			 let x = attributes.position.array[i];
+			 let y = attributes.position.array[i+1];
+			 let z = attributes.position.array[i+2];
+			 output_writer.file_text += `${x} ${y} ${z}\n`;
+
+			 // calculate mean, minimum, maximum of temp buffer
+			 let mean = vertex_temps.temp_maxima[i/3];
+			 let min = vertex_temps.temp_minima[i/3];
+			 let max = vertex_temps.temp_maxima[i/3];
+			 let std_dev = vertex_temps.temp_std_dev[i/3];
+			 // let median = vertex_temps.temp_medians[i/3];
+
+			 // format constants into the file text
+			 output_writer.file_text += `Max: ${max}\nMin: ${min}\nMean: ${mean}\nStandard Deviation: ${std_dev}\n`;
+			 // output_writer.file_text += `Max: ${max}\nMin: ${min}\nMedian: ${median}\nStandard Deviation: ${std_dev}\n`;
+		 }
+	 }
+
+	 output_writer.output_url = null;
+	 output_writer.create_output_file = function () {
+		 // create file text
+		 output_writer.init_file_text();
+		 // write text to file
+		 const file_blob = new Blob([output_writer.file_text], {type:'text/plain'});
+		 // if there's already a url, overwrite it
+		 if(output_writer.output_url !== null) {
+			 window.URL.revokeObjectURL(output_writer.output_url);
+		 }
+		 // create a url to a download
+		 output_writer.output_url = window.URL.createObjectURL(file_blob);
+	 }
+
+
+	 output_file_button.onclick = function () {
+		 // only load file if there's a full mesh
+		 if(geo_loaded && temp_loaded) {
+			 output_writer.create_output_file();
+			 // write the url to the page
+			 output_file_link.href = output_writer.output_url;
+			 // make the link visible
+			 output_file_link.style.display = "block";
+			 // link it to a download
+			 output_file_link.download = "output.txt";
+		 }
+		 else {
+			 alert("Load STL and Temperature Files First.");
+		 }
+	 }
+
+
+	 let animation_control = new Object();
+	 // pause control
+	 animation_control.pause = false;
+	 // tracks current frame
+	 animation_control.current_frame = 0;
+	 // current color scheme
+	 animation_control.curr_color = input_color.value;
+	 // color gradient vectors
+	 animation_control.color_gradient = [[0,0,1],[0,1,0],[1,0,0]];
+	 // changes data type
+	 animation_control.new_data_type = false;
+	 // constant fps rate vs time stamps
+	 animation_control.const_fps = null;
+	 // stores time stamps
+	 animation_control.time_stamps = null;
+	 // stores left slider val
+	 animation_control.color_min = 0;
+	 // stores right slider val
+	 animation_control.color_max = 100;
+	 // display raw temp, mean, max, min, or range
+	 animation_control.data_category = null;
+	 // controls rotation of object
+	 animation_control.rotate = false;
+	 // holds the point size of object
+	 animation_control.pt_size = 1;
+
+
+	 right_slider.style.width = '50%';
+	 left_slider.style.width = '50%';
+	 right_bubble.style.width = '5%';
+	 left_bubble.style.width = '5%';
+
+	 left_slider.value = left_slider.min;
+	 left_bubble.value = left_slider.min;
+	 right_slider.value = right_slider.max;
+	 right_bubble.value = right_slider.max;
+
+
+	 animation_control.check_update = function () {
+		 // if the user isn't currently typing
+		 if(!input_frame_value.oninput)  {
+			 let range_frame = Number(input_frame_range.value);
+			 let value_frame = Number(input_frame_value.value);
+			 // if frame change
+			 if(this.current_frame != range_frame) {
+				 // update:
+				 // 1. current frame
+				 // 2. range/value form
+				 // 3. mesh
+				 this.current_frame = range_frame;
+				 input_frame_value.value = this.current_frame;
+				 this.update_frame();
+			 }
+			 // see above
+			 else if(this.current_frame != value_frame) {
+				 this.current_frame = value_frame;
+				 input_frame_range.value = this.current_frame;
+				 this.update_frame();
+			 }
+		 }
+
+		 if(!left_bubble.oninput && !right_bubble.oninput &&
+		 		!left_slider.oninput && !right_slider.oninput) {
+
+			 let left_txt = Number(left_bubble.value);
+			 let left_range = Number(left_slider.value);
+			 if(left_txt != this.color_min) {
+				 this.color_min = left_txt;
+				 left_slider.value = left_txt;
+			 }
+			 else if(left_range != this.color_min) {
+				 this.color_min = left_range;
+				 left_bubble.value = left_range;
+			 }
+
+			 let right_txt = Number(right_bubble.value);
+			 let right_range = Number(right_slider.value);
+			 if(right_txt != this.color_max) {
+				 this.color_max = right_txt;
+				 right_slider.value = right_txt;
+			 }
+			 else if(right_range != this.color_max) {
+				 this.color_max = right_range;
+				 right_bubble.value = right_range;
+			 }
+
+			 this.update_sliders();
+
+		 }
+
+		if(this.data_category != input_data_category.value) {
+ 			this.data_category = input_data_category.value;
+ 			this.new_data_type = true;
+ 			this.update_frame();
+	 	}
+
+		if(this.pt_size != Number(input_pt_size.value)) {
+			this.pt_size = Number(input_pt_size.value);
+			console.log("hi")
+			this.update_pt_size();
+		}
+
+
+		 // if color change
+		 if(!gradient_1.oninput && !gradient_2.oninput && !gradient_3.oninput) {
+			let new_gradient_0 = hex_to_normalized_rgb(gradient_1.value);
+			let new_gradient_1 = hex_to_normalized_rgb(gradient_2.value);
+			let new_gradient_2 = hex_to_normalized_rgb(gradient_3.value);
+			for(let i = 0; i < 3; ++i) {
+				if(new_gradient_0[i] != this.color_gradient[0][i] ||
+					 new_gradient_1[i] != this.color_gradient[1][i] ||
+					 new_gradient_2[i] != this.color_gradient[2][i]) {
+					 this.color_gradient = [new_gradient_0, new_gradient_1, new_gradient_2];
+					 this.update_frame();
+		 			 this.update_gradient();
+					 return;
+				}
+			}
+		}
+	}
+
+	animation_control.update_gradient = function() {
+		sliders.style.background = `linear-gradient(to right, ${gradient_1.value},
+			 													${gradient_2.value}, ${gradient_3.value})`;
+	}
+
+	animation_control.update_pt_size = function () {
+		for(let child = 0; child < scene.children.length; ++child) {
+			if('material' in scene.children[child] && 'size' in scene.children[child].material) {
+				scene.children[child].material.size = this.pt_size;
+			}
+		}
+	}
+
+
+	animation_control.update_sliders = function () {
+		let lower_bound = Number(left_slider.value);
+		let lower_min = Number(left_slider.min);
+		let lower_max = Number(left_slider.max);
+		let lower_width = parseFloat(left_slider.style.width);
+
+		let upper_bound = Number(right_slider.value);
+		let upper_min = Number(right_slider.min);
+		let upper_max = Number(right_slider.max);
+		let upper_width = parseFloat(right_slider.style.width);
+
+		if(upper_max - lower_min < 3) { return; }
+
+		// 100% width = (upper_max - lower_min)
+		// 1% width = (upper_max - lower_min)/100
+		let kelvin_per_pct_width = (upper_max-lower_min)/100;
+
+		let right_shift_factor = 1;
+		let left_shift_factor = 1;
+
+		if(upper_min + kelvin_per_pct_width < upper_bound) { right_shift_factor = kelvin_per_pct_width; }
+		if(lower_max - kelvin_per_pct_width > lower_bound) { left_shift_factor = kelvin_per_pct_width; }
+
+		if(lower_bound == lower_max && upper_min + right_shift_factor < upper_max) {
+			upper_min += right_shift_factor;
+			lower_max += right_shift_factor;
+			lower_width += right_shift_factor/kelvin_per_pct_width;
+			if(upper_bound <= upper_min) { upper_bound += right_shift_factor; }
+		}
+
+		else if(upper_bound == upper_min && lower_max - left_shift_factor > lower_min) {
+			upper_min -= left_shift_factor;
+			lower_max -= left_shift_factor;
+			lower_width -= left_shift_factor/kelvin_per_pct_width;
+			if(lower_bound >= lower_max) { lower_bound -= left_shift_factor; }
+		}
+
+		this.color_min = left_slider.value = left_bubble.value = lower_bound;
+		this.color_max =  right_slider.value = right_bubble.value = upper_bound;
+
+		left_slider.max = lower_max;
+		right_slider.min = upper_min;
+
+		left_slider.style.width = `${lower_width}%`;
+		right_slider.style.width = `${100 - lower_width}%`;
+
+		let offset = parseFloat(left_bubble.style.width)/2;
+		left_bubble.style.left = `${(lower_bound-lower_min)/kelvin_per_pct_width - offset}%`;
+		right_bubble.style.left = `${(upper_bound-lower_min)/kelvin_per_pct_width - offset}%`;
+
+	}
+
+
+	 animation_control.play_timestamps = function () {
+		 let play = function() {
+			 // stop if we've been paused
+			 if(animation_control.pause) {
+				 for(let i = 0; i < this.play_loop.length; ++i) {
+					 clearTimeout(this.play_loop[i]);
+				 }
+			 }
+			 else {
+				 // move to the next frame
+				++animation_control.current_frame;
+				// change the mesh/inputs accordingly
+				input_frame_value.value = animation_control.current_frame;
+				input_frame_range.value = animation_control.current_frame;
+				animation_control.update_frame();
+			 }
+		 }
+		 this.play_loop = [];
+		 let ms_elapsed = 0;
+		 for(let i = animation_control.current_frame;
+			 i + 1 < animation_control.timestamps.length; ++i) {
+				 let start = animation_control.timestamps[i];
+				 let end = animation_control.timestamps[i+1];
+				 ms_elapsed += (end - start);
+				 this.play_loop = setTimeout(play, 1000*ms_elapsed);
+		 }
+	 }
+
+	 animation_control.play_frames = function (fps, direction) {
+		 let play = function() {
+			 // stop if we've been paused
+			 if(animation_control.pause) { clearInterval(animation_control.play_loop); }
+			 // move to the next frame
+			 animation_control.current_frame += direction;
+			 // change the mesh/inputs accordingly
+			 input_frame_value.value = animation_control.current_frame;
+			 input_frame_range.value = animation_control.current_frame;
+			 animation_control.update_frame();
+		 }
+		 this.play_loop = setInterval(play, 1000/fps);
+	 }
+
+		animation_control.update_frame = function () {
+			let max_frame = Number(input_frame_range.max);
+			this.pause = (this.current_frame > max_frame || this.current_frame < 0);
+			// update color for every mesh geometry
+			for(let child = 0; child < scene.children.length; ++child) {
+				if('geometry' in scene.children[child]) {
+					this.update_colors(scene.children[child].geometry);
+				}
+			}
+		}
+
+		function subtract(arr1, arr2) {
+			let sol = new Float32Array(arr1.length);
+			for(let i = 0; i < arr1.length; ++i) { sol[i] = arr1[i] - arr2[i]; }
+			return sol;
+		}
+
+		animation_control.update_colors = function (geometry) {
+			let temp_data = null, num_frames = vertex_temps.num_temps;
+			if(this.data_category == 'Max') {temp_data = vertex_temps.temp_maxima;}
+			else if(this.data_category == 'Min') {temp_data = vertex_temps.temp_minima;}
+			else if(this.data_category == 'Mean') {temp_data = vertex_temps.temp_means;}
+			else if(this.data_category == 'let') {temp_data = vertex_temps.temp_std_dev;}
+			else if(this.data_category == 'Range') {temp_data = subtract(vertex_temps.temp_maxima,
+																							vertex_temps.temp_minima);}
+			else if(this.data_category == 'Temp') {temp_data = vertex_temps.temp_data;}
+
+			let max = -Infinity, min = Infinity;
+			if(this.data_category != 'Temp') {
+				num_frames = 1;
+				for(let i = 0; i < temp_data.length; ++i) {
+					if(temp_data[i] > max) { max = temp_data[i]; }
+					if(temp_data[i] < min) { min = temp_data[i]; }
+				}
+			}
+			else {
+				max = vertex_temps.max;
+				min = vertex_temps.min;
+			}
+
+			if(this.new_data_type) {
+				this.color_min = Math.floor(min);
+				this.color_max = Math.ceil(max);
+
+				left_slider.min = this.color_min;
+				left_bubble.value = this.color_min;
+				left_slider.value = this.color_min;
+
+				right_slider.max = this.color_max;
+				right_bubble.value = this.color_max;
+				right_slider.value = this.color_max;
+
+				left_slider.max = Math.floor((this.color_min+this.color_max)/2);
+				if(max - min > 3) {
+					right_slider.min = Math.floor((this.color_min+this.color_max)/2)+1;
+				}
+				else {
+					right_slider.min = Math.floor((this.color_min+this.color_max)/2);
+				}
+
+				this.new_data_type = false;
+			}
+
+			let colors = geometry.attributes.color.array;
+			// convert frame from string to number
+			if(temp_data && temp_data.length > 0) {
+				// keeps temp between 0 and 1
+				let norm_constant = 1;
+				if(max > min) { norm_constant = max - min; }
+				for(let point = 0; point + 2 < colors.length; point += 3) {
+					// get the temperature entry for the given frame and point
+					let temp = temp_data[(point/3)*num_frames + this.current_frame];
+					if(temp < this.color_min) { temp = this.color_min; }
+					else if(temp > this.color_max) { temp = this.color_max; }
+					if(this.curr_color == "Black Body") {
+						// convert temperature to red, green, and blue
+						colors[point] = kelvin_to_color.convert_r(temp);
+						colors[point + 1] = kelvin_to_color.convert_g(temp);
+						colors[point + 2] = kelvin_to_color.convert_b(temp);
+					}
+					else {
+						let color_3 = (temp - min)/norm_constant;
+						let color_1 = 1 - color_3;
+						let color_2 = 2*Math.min(color_1, color_3);
+						if(color_3 == NaN) {alert("rip!")}
+
+						// linear combination of three gradient vectors:
+						colors[point] = (this.color_gradient[0][0]*color_1 +
+														this.color_gradient[1][0]*color_2 +
+														this.color_gradient[2][0]*color_3);
+
+						colors[point + 1] = (this.color_gradient[0][1]*color_1 +
+																this.color_gradient[1][1]*color_2 +
+																this.color_gradient[2][1]*color_3);
+
+						colors[point + 2] = (this.color_gradient[0][2]*color_1 +
+																this.color_gradient[1][2]*color_2 +
+																this.color_gradient[2][2]*color_3);
+					}
+				}
+			}
+			geometry.attributes.color.needsUpdate = true;
+		}
+
+
+		play_button.onclick = function () {
+			clearInterval(animation_control.play_loop);
+			if(animation_control.const_fps) {
+				animation_control.play_frames(Number(input_fps.value), 1);
+			}
+			else {
+				animation_control.play_timestamps();
+			}
+		}
+
+		pause_button.onclick = function () {
+			animation_control.pause = true;
+		}
+
+		reverse_button.onclick = function () {
+			clearInterval(animation_control.play_loop);
+			animation_control.play_frames(Number(input_fps.value), -1);
+		}
+
+		input_static_update.onclick = function () {
+			animation_control.update_frame();
+		}
+
+		start_rotate_button.onclick = function () {
+			animation_control.rotate = true;
+		}
+
+		stop_rotate_button.onclick = function () {
+			animation_control.rotate = false;
+		}
+
+		fps_radio.onclick = function () {
+			animation_control.const_fps = true;
+			fps_container.style.display = 'block';
+		}
+
+		stamp_radio.onclick = function () {
+			if(animation_control.timestamps !== null) {
+				animation_control.const_fps = false;
+				fps_container.style.display = 'none';
+			}
+			else {
+				alert("Load timestamp file first.");
+			}
+		}
+
+		let color_to_hex = new Map([
+			['Blue Green Red', ['#0000ff', '#00ff00', '#ff0000']],
+			['Yellow Orange Red', ['#ffeda0', '#feb24c', '#f03b20']],
+			['Yellow Green Blue', ['#edf8b1', '#7fcdbb', '#2c7fb8']],
+			['Grey', ['#f0f0f0','#bdbdbd','#636363']],
+			['Purple Red', ['#e7e1ef', '#c994c7', '#dd1c77']],
+		]);
+
+		input_color.oninput = function () {
+			if(color_to_hex.has(input_color.value)) {
+				let new_gradient = color_to_hex.get(input_color.value);
+				gradient_1.value = new_gradient[0];
+				gradient_2.value = new_gradient[1];
+				gradient_3.value = new_gradient[2];
+			}
+			animation_control.curr_color = input_color.value;
+		}
+
+		input_data_category.oninput = function () {
+			animation_control.current_frame = 0;
+			if(input_data_category.value != 'Temp') {
+				input_animation.style.display = 'none';
+				input_static.style.display = 'block';
+			}
+			else {
+				input_animation.style.display = 'block';
+				input_static.style.display = 'none';
+			}
+		}
+
+		input_color.oninput();
+		input_data_category.oninput();
+
+		let processed_files = new Set();
+		let geo_loaded = false;
+		let temp_loaded = false;
+
+		let animate = function () {
+			requestAnimationFrame( animate );
+			controls.update();
+
+			animation_control.check_update();
+
+			for(let i = 0; i < input_files.files.length; ++i) {
+				// check if:
+				// 1. there are input files
+				// 2. if we've already read the input file
+				if ( input_files.files && input_files.files[i] &&
+					!(processed_files.has(input_files.files[i].name)) ) {
+					let exts = get_extensions(input_files.files[i].name);
+					if ( exts.includes('stl') || exts.includes('pt') ) {
+						geometry_reader.is_stl = exts.includes('stl');
+						if(!geometry_reader.is_stl) {pt_size_container.style.display = 'block';}
+						// read stl object
+						geometry_reader.readAsText(input_files.files[i]);
+						// add to the set of seen files
+						processed_files.add(input_files.files[i].name);
+						geo_loaded = true;
+					}
+					else if ( exts.includes('txt') || exts.includes('csv')) {
+						if( exts.includes('temp') ) {
+							// do not read temperature file if mesh is not loaded
+							if(!geo_loaded) {
+								window.alert("Load STL File First.");
+								input_files.value = null;
+							}
+							else {
+								temp_reader.is_txt = exts.includes('txt');
+								temp_reader.readAsText(input_files.files[i]);
+								processed_files.add(input_files.files[i].name);
+								temp_loaded = true;
+							}
+						}
+						else if( exts.includes('time') ) {
+							if(!geo_loaded || !temp_loaded) {
+								window.alert("Load STL and Temperature Files First.");
+								input_files.value = null;
+							}
+							else {
+								timestamp_reader.readAsText(input_files.files[i]);
+								processed_files.add(input_files.files[i].name);
+							}
+						}
+					}
+				}
+			}
+			// create a toggle for this
+			if(geo_loaded && animation_control.rotate) {
+				scene.children[mesh_idx].rotation.x += .005;
+				scene.children[mesh_idx].rotation.y += .005;
+			}
+			// render the scene
+			renderer.render( scene, camera );
+		};
+
+		window.addEventListener('resize', on_window_resize);
+
+		animate();
+
+		function get_extensions(filename) {
+			let exts = filename.split('.');
+			exts.shift();
+			return exts;
+		}
+
+
+		function on_window_resize() {
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+			renderer.setSize( window.innerWidth, window.innerHeight );
+		}
+
+		function linear_time_median (arr) {
+			let b1 = new Float32Array(arr.length);
+			let b2 = new Float32Array(arr.length);
+			return linear_time_kth(arr, arr.length, b1, b2, Math.floor(arr.length/2));
+		}
+
+		function linear_time_kth (arr, arr_len, less_than_pivot, everything_else, k) {
+			if(arr_len == 0) return 0;
+			if(arr_len == 1) return arr[0];
+			let pivot = Math.floor(Math.random()*arr_len);
+			let duplicates = 0;
+			let less_than_idx = 0;
+			let everything_idx = 0;
+			for(let i = 0; i < arr_len; ++i) {
+				if(arr[i] < arr[pivot]) { less_than_pivot[less_than_idx++] = arr[i]; }
+				if(arr[i] == arr[pivot]) { ++duplicates; }
+				if(arr[i] >= arr[pivot]) {	everything_else[everything_idx++] = arr[i]; }
+			}
+			if(less_than_idx == k || duplicates == arr_len) {
+				return arr[pivot];
+			}
+			else if(less_than_idx > k) {
+				return linear_time_median(less_than_pivot, less_than_idx, arr,
+					 												everything_else, k);
+			}
+			else {
+				return linear_time_median(everything_else, everything_idx,  arr,
+																	less_than_pivot, k - less_than_idx);
+			}
+		}
+
+		function hex_to_rgb(hex) {
+			let color_str = hex.toLowerCase().split('#').pop();
+			let red = 0;
+			let green = 0;
+			let blue = 0;
+			if(color_str.length == 3) {
+				red = 17*parseInt(color_str[0], 16);
+				green =  17*parseInt(color_str[1], 16);
+				blue = 17*parseInt(color_str[2], 16);
+			}
+			else if(color_str.length == 6) {
+				red = 16*parseInt(color_str[0], 16) + parseInt(color_str[1], 16);
+				green = 16*parseInt(color_str[2], 16) + parseInt(color_str[3], 16);
+				blue = 16*parseInt(color_str[4], 16) + parseInt(color_str[5], 16);
+			}
+			return [red, green, blue];
+		}
+
+		function hex_to_normalized_rgb(hex) {
+			let color_arr = hex_to_rgb(hex);
+			for(let i = 0; i < color_arr.length; ++i) {
+				color_arr[i] /= 255;
+			}
+			return color_arr;
+		}
+
+		</script>
+	</body>
+</html>
