@@ -1,0 +1,17 @@
+{
+  "name": "temp_vis",
+  "version": "1.0.0",
+  "description": "new try",
+  "main": "test.js",
+  "dependencies": {
+    "default-passive-events": "^1.0.10",
+    "nouislider": "^14.5.0",
+    "three": "^0.117.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "kevin",
+  "license": "ISC"
+}
