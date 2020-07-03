@@ -101,8 +101,6 @@ export class GeometryParser extends FileReader {
 
   			object.geometry.center();
 
-        console.log(object.geometry);
-
   			if(this._is_stl) {scene.add(new THREE.Mesh(object.geometry, object.material));}
   			else {scene.add(new THREE.Points(object.geometry, object.material));}
 

@@ -202,7 +202,6 @@ export class ColorController {
                            color_gradient_rgb[1][2]*color_2 +
                            color_gradient_rgb[2][2]*color_3);
 
-        pt_alphas[pt/3] = 1;
 
       }
 
@@ -352,50 +351,142 @@ export class LoopController {
 
 
 export class PlaneController {
-  contructor(theta_input, phi_input, x_input, y_input, z_input, threshold,
-             vertex_opacity, vertices, control_handler) {
+  constructor(plane_forms, plane_sliders,
+             alpha_attribute, position_attribute,
+             bounding_box, bounding_sphere,
+             plane_geometry,
+             control_handler) {
 
     control_handler.add(this);
 
-    let theta = null;
-    let phi = null;
-    let trans_x = null;
-    let trans_y = null;
-    let trans_z = null;
-    let thres = null;
+    let vertex_opacity = alpha_attribute.array;
+    let vertices = position_attribute.array;
+
+    let plane_radius = bounding_sphere.radius;
+
+    let rel_para = ['theta', 'phi', 'x', 'y', 'z', 'thres'];
+
+    let plane_para = {
+      theta: 0,
+      phi: 0,
+      x : (bounding_box.min.x + bounding_box.max.x)/2,
+      y : (bounding_box.min.y + bounding_box.max.y)/2,
+      z : (bounding_box.min.z + bounding_box.max.z)/2,
+      thres : plane_radius,
+    };
+
+    plane_sliders.x.min = bounding_box.min.x;
+    plane_sliders.x.max = bounding_box.max.x;
+
+    plane_sliders.y.min = bounding_box.min.y;
+    plane_sliders.y.max = bounding_box.max.y;
+
+    plane_sliders.z.min = bounding_box.min.z;
+    plane_sliders.z.max = bounding_box.max.z;
+
+    plane_sliders.thres.min = 0;
+    plane_sliders.thres.max = plane_radius;
+
+    for(const para of rel_para) {
+      plane_sliders[para].value = plane_para[para];
+      plane_forms[para].value = plane_para[para];
+    }
 
     this.check_update = function () {
-      let new_theta = Number(theta_input);
-      let new_phi = Number(phi_input);
-      let new_x = Number(x_input);
-      let new_y = Number(y_input);
-      let new_z = Number(z_input);
-      let new_thres = Number(threshold)
 
-      if(new_theta == theta && new_phi == phi && trans_x == new_x &&
-      trans_y == new_y && trans_z == new_z && thres == new_thres) { return; }
+      for(const para of rel_para) {
+        if(plane_forms[para].oninput) {return;}
+        if(plane_sliders[para].oninput) {return;}
+      }
 
-      theta = new_theta;
-      phi = new_phi
-      trans_x = new_x;
-      trans_y = new_y;
-      trans_z = new_z;
-      thres = new_thres;
+      let update = false;
 
-      update_plane();
+      for(const para of rel_para) {
+
+        let form_val = Number(plane_forms[para].value);
+        let slider_val = Number(plane_sliders[para].value);
+
+        if(form_val != plane_para[para]) {
+          plane_sliders[para].value = form_val;
+          plane_para[para] = form_val;
+          update = true;
+        }
+
+        else if(slider_val != plane_para[para]) {
+          plane_forms[para].value = slider_val;
+          plane_para[para] = slider_val;
+          update = true;
+        }
+
+      }
+
+      if(update) { update_opacity(); update_plane_geometry(); }
 
     };
 
-    function update_plane() {
+    function update_plane_geometry () {
 
-      let v_i = Math.sin(phi)*Math.cos(theta);
-      let v_j = Math.sin(phi)*Math.sin(theta);
-      let v_k = Math.cos(phi);
+      let plane_pts = plane_geometry.attributes.position.array;
 
+      let rad_phi = -plane_para.phi/180*Math.PI;
+      let rad_theta = -plane_para.theta/180*Math.PI;
+
+      let x_axis = [plane_radius*Math.cos(rad_phi)*Math.sin(rad_theta + Math.PI/2),
+                    plane_radius*Math.cos(rad_phi)*Math.cos(rad_theta + Math.PI/2),
+                    plane_radius*Math.sin(rad_phi)];
+
+      let y_axis = [plane_radius*Math.sin(rad_theta),
+                    plane_radius*Math.cos(rad_theta),
+                    0];
+
+      let triangles = [ // triangle 1
+                        x_axis[0], x_axis[1], x_axis[2],
+                        y_axis[0], y_axis[1], y_axis[2],
+                        -x_axis[0], -x_axis[1], -x_axis[2],
+
+                        // triangle 2
+                        x_axis[0], x_axis[1], x_axis[2],
+                        -y_axis[0], -y_axis[1], -y_axis[2],
+                        -x_axis[0], -x_axis[1], -x_axis[2]
+                      ];
+
+
+      for(let i = 0; i + 2 < triangles.length; i += 3) {
+        plane_pts[i] = triangles[i] + plane_para.x;
+        plane_pts[i+1] = triangles[i+1] + plane_para.y;
+        plane_pts[i+2] = triangles[i+2] + plane_para.z;
+      }
+
+      plane_geometry.attributes.position.needsUpdate = true;
 
 
     };
 
+    function update_opacity() {
+
+      let phi = plane_para.phi/180*Math.PI;
+      let theta = plane_para.theta/180*Math.PI;
+
+      let n_i = Math.sin(phi)*Math.cos(theta);
+      let n_j = Math.sin(phi)*Math.sin(theta);
+      let n_k = Math.cos(phi);
+
+      for(let i = 0; i + 2 < vertices.length; i += 3) {
+
+        let v_i = vertices[i] - plane_para.x;
+        let v_j = vertices[i+1] - plane_para.y;
+        let v_k = vertices[i+2] - plane_para.z;
+
+        let dot_prod = n_i*v_i + n_j*v_j + n_k*v_k;
+        let thres = plane_para.thres*plane_para.thres;
+
+        vertex_opacity[i/3] = (dot_prod*dot_prod <= thres);
+
+      }
+
+      alpha_attribute.needsUpdate = true;
+
+    };
 
   }
 }

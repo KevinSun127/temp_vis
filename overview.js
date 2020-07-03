@@ -1,7 +1,7 @@
 import {ControlHandler, FileHandler} from './update_handler.js';
 import {GradientController, ColorController, PointController, LoopController,
         DataCategoryController, SliderController, RotationController,
-        TimeStampController} from './controller.js';
+        TimeStampController, PlaneController} from './controller.js';
 import {OrbitControls} from './node_modules/three/examples/jsm/controls/OrbitControls.js';
 import * as THREE from './node_modules/three/build/three.module.js';
 
@@ -16,7 +16,8 @@ export let Main = function (file_input, output_link, output_file_button,
                             video_display, picture_display, pt_display,
                             slider_div, left_slider, right_slider, left_bubble, right_bubble,
                             start_rotate, stop_rotate,
-                            time_container, stamp_input, time_input, time_start, time_stop, time_reverse) {
+                            time_container, stamp_input, time_input, time_start, time_stop, time_reverse,
+                            plane_forms, plane_sliders) {
 
   let scene = new THREE.Scene();
   scene.background = new THREE.Color(0x808080);
@@ -27,6 +28,21 @@ export let Main = function (file_input, output_link, output_file_button,
 
   let ambient_light = new THREE.AmbientLight( 0xffffff );
   scene.add( ambient_light );
+
+  let plane_geometry = new THREE.BufferGeometry();
+  plane_geometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(18), 3));
+  // three js
+  let plane_material = new THREE.MeshPhongMaterial(
+    {color: 0xFFFFFF,
+     side: THREE.DoubleSide,
+     opacity: .25,
+     transparent: true,
+   }
+ );
+
+  let plane = new THREE.Mesh( plane_geometry, plane_material );
+  plane.renderOrder = 1;
+  scene.add( plane );
 
   let renderer = new THREE.WebGLRenderer();
   renderer.setSize( window.innerWidth / 2, window.innerHeight );
@@ -51,6 +67,7 @@ export let Main = function (file_input, output_link, output_file_button,
   let gradient_control = null;
   let rotate_control = null;
   let time_control = null;
+  let plane_control = null;
 
   let animate = function () {
 
@@ -63,6 +80,15 @@ export let Main = function (file_input, output_link, output_file_button,
     }
 
     else if(file_handler.all_loaded() && !control_handler.all_loaded()) {
+
+      plane_control = new PlaneController(plane_forms, plane_sliders,
+                                          file_handler.get_alpha_attribute(),
+                                          file_handler.get_position_attribute(),
+                                          file_handler.get_bounding_box(),
+                                          file_handler.get_bounding_sphere(),
+                                          plane_geometry,
+                                          control_handler);
+
       color_control = new ColorController(frame_slider, frame_txt,
                                           file_handler.get_color_attribute(),
                                           file_handler.get_alpha_attribute(),
