@@ -3,6 +3,7 @@ export class GradientController {
 
     control_handler.add(this);
 
+    // converts color scheme to hex triples
     let scheme_to_hex = new Map([
 			['Blue Green Red', ['#0000ff', '#00ff00', '#ff0000']],
 			['Yellow Orange Red', ['#ffeda0', '#feb24c', '#f03b20']],
@@ -11,9 +12,13 @@ export class GradientController {
 			['Purple Red', ['#e7e1ef', '#c994c7', '#dd1c77']],
 		]);
 
+    // start with RGB
     let curr_scheme = 'Blue Green Red';
 
+    // get the appropriate hex triplet
     let color_gradient_hex = ['#0000ff', '#00ff00', '#ff0000'];
+
+    // set up color inputs with the hex values
     for(let i = 0; i < 3; ++i) {
       gradient_inputs[i].value = color_gradient_hex[i];
       gradient_inputs[i].style.width = `${60}`;
@@ -23,6 +28,7 @@ export class GradientController {
       if(!gradient_inputs[0].oninput && !gradient_inputs[1].oninput
         && !gradient_inputs[2].oninput) {
 
+        // load new color gradient if there's a diffference
         if(gradient_inputs[0].value != color_gradient_hex[0] ||
           gradient_inputs[1].value != color_gradient_hex[1] ||
           gradient_inputs[2].value != color_gradient_hex[2]) {
@@ -31,12 +37,14 @@ export class GradientController {
           color_gradient_hex[1] = gradient_inputs[1].value;
           color_gradient_hex[2] = gradient_inputs[2].value;
 
+          // change global coloring scheme
           export_gradient();
 
         }
 
       }
 
+      // if the color scheme changes, update hex values
       if(curr_scheme != color_scheme_input.value
         && scheme_to_hex.has(color_scheme_input.value)) {
 
@@ -47,6 +55,7 @@ export class GradientController {
         gradient_inputs[1].value = color_gradient_hex[1];
         gradient_inputs[2].value = color_gradient_hex[2];
 
+        // update global coloring
         export_gradient();
 
       }
@@ -54,6 +63,7 @@ export class GradientController {
     }
 
     function export_gradient () {
+      // send to control handler
       control_handler.adjust_gradient(color_gradient_hex);
     };
 
@@ -74,7 +84,7 @@ export class ColorController {
 
     let real_min = Infinity;
     let real_max = -Infinity;
-    let norm_constant = 1;
+    let range = 1;
 
     let color_min = Infinity;
     let color_max = -Infinity;
@@ -83,26 +93,36 @@ export class ColorController {
     let curr_frame = 0;
     let num_frames = frame_count;
 
+    // start slider at zero
     frame_slider.min = 0;
     frame_slider.value = 0;
     frame_slider.max = frame_count - 1;
 
+    // set bubble size (10 pixels per digit)
     let max_num_width = 10*(frame_slider.max.length);
-    let offset = (100*max_num_width/window.innerHeight);
 
+    // offset to center bubble at the frame slider tag
+    let offset = (100*max_num_width/window.innerWidth);
+
+    // start the frame bubble at zero
     frame_txt.value = 0;
     frame_txt.style.width = `${max_num_width}px`;
     frame_txt.style.left = `${1.25 - offset}%`;
 
-    init_norm_constant();
+    init_range();
 
     this.check_update = function () {
+      // if there's only one frame or we're inputting our number, don't update
       if(frame_txt.oninput || num_frames <= 1) { return; }
 
+      // get the slider input and text input
       let slider_val = Number(frame_slider.value);
       let txt_val = Number(frame_txt.value);
 
+      // no change, no update
       if(slider_val == curr_frame && txt_val == curr_frame) { return; }
+
+      // update the current frame to the inconsistent input
 
       if(slider_val != curr_frame) {
         curr_frame = slider_val;
@@ -114,13 +134,17 @@ export class ColorController {
         frame_slider.value = txt_val;
       }
 
+      // adjust the bubble position
       frame_txt.style.left = `${1.25 + 100*(curr_frame/num_frames) - offset}%`;
 
+      // reflect changes in frame
+      reset_opacity();
       update_colors();
 
     };
 
     this.new_gradient = function (hex_color_array) {
+      // receive new gradient, change color with it
       color_gradient_rgb = [hex_to_normalized_rgb(hex_color_array[0]),
                             hex_to_normalized_rgb(hex_color_array[1]),
                             hex_to_normalized_rgb(hex_color_array[2])];
@@ -128,6 +152,8 @@ export class ColorController {
     };
 
     this.new_data = function (coloring_data, frame_count) {
+
+      // receive new data, reset everything
 
       temp_data = coloring_data;
       num_frames = frame_count;
@@ -137,7 +163,7 @@ export class ColorController {
       frame_slider.value = 0;
       frame_slider.max = frame_count - 1;
 
-      init_norm_constant();
+      init_range();
 
       color_min = real_min;
       color_max = real_max;
@@ -152,8 +178,12 @@ export class ColorController {
       update_colors();
     };
 
-    function init_norm_constant () {
+    this.new_color = function () {
+      update_colors();
+    };
 
+    function init_range () {
+      // get max, min to normalize the data
       real_min = Infinity;
       real_max = -Infinity;
 
@@ -162,30 +192,41 @@ export class ColorController {
   			if(temp_data[i] < real_min) { real_min = temp_data[i]; }
   		}
 
-      if(real_max > real_min) {norm_constant = real_max - real_min;}
+      // get the range
+      if(real_max > real_min) {range = real_max - real_min;}
 
     };
 
     function normalize(temp) {
-      return (temp-real_min)/norm_constant;
+      return (temp-real_min)/range;
     };
 
     function export_extrema () {
       control_handler.adjust_extrema(real_min, real_max);
     };
 
-    function update_colors () {
+    function reset_opacity () {
+      control_handler.adjust_opacity();
+    };
 
+    function update_colors () {
+      // if frame doesn't exist, stop
       if(curr_frame >= num_frames) { return control_handler.pause(); }
 
+      // for every point (3 coordinates)
       for(let pt = 0; pt + 2 < pt_colors.length; pt += 3) {
+
+        // get the corresponding point
         let temp_at_frame = temp_data[(pt/3)*num_frames + curr_frame];
 
+        // if it's NaN, then don't display
         if(temp_at_frame !== temp_at_frame) { pt_alphas[pt/3] = 0; continue; }
 
+        // clamp at the min/max readings
         if(temp_at_frame < color_min) {temp_at_frame = color_min;}
         if(temp_at_frame > color_max) {temp_at_frame = color_max;}
 
+        // normalize temperature -> linear color gradient
         let color_3 = normalize(temp_at_frame);
         let color_1 = 1 - color_3;
         let color_2 = 2*Math.min(color_3, color_1);
@@ -249,13 +290,14 @@ export class PointController {
     control_handler.add(this);
 
     pt_size_txt.value = 1;
-    pt_size_slider.value = 10;
+    pt_size_slider.value = 1;
 
     pt_size_slider.min = 0;
-    pt_size_slider.max = 100;
+    pt_size_slider.max = 10;
 
-    let max_num_width = 10*pt_size_slider.max.length;
-    let offset = 100*max_num_width/window.innerWidth;
+    // set bubble width/position
+    let max_num_width = 30;
+    let offset = 100*(max_num_width/window.innerWidth);
     pt_size_txt.style.width = `${max_num_width}px`;
     pt_size_txt.style.left = `${1.25 - offset}%`;
 
@@ -267,21 +309,24 @@ export class PointController {
       let new_size_slider = Number(pt_size_slider.value);
 
       if(point_size.value !== new_size_txt) {
-        pt_size_slider.value = Math.floor(new_size_txt*10);
+        // round text value to nearest tenth
+        pt_size_slider.value = Math.floor(new_size_txt*10)/10;
         update_pt_size(new_size_txt);
       }
 
       else if(point_size.value !== new_size_slider) {
-        pt_size_txt.value = new_size_slider/10;
-        update_pt_size(new_size_slider/10);
+        pt_size_txt.value = new_size_slider;
+        update_pt_size(new_size_slider);
       }
 
       pt_size_txt.style.left = `${1.25 + 100*point_size.value/10 - offset}%`;
 
     }
+
     function update_pt_size (pt_size) {
       point_size.value = pt_size;
     }
+
   }
 }
 
@@ -292,6 +337,7 @@ export class LoopController {
 
     control_handler.add(this);
 
+    // 50 pixel text box
     let curr_fps = 50;
     fps_input.value = 50;
     fps_input.style.width = `${10*5}px`;
@@ -311,7 +357,6 @@ export class LoopController {
       pause_loop();
     };
 
-
     forward_button.onclick = function () {
       control_handler.pause();
       start_loop(1);
@@ -326,7 +371,6 @@ export class LoopController {
       control_handler.pause();
     };
 
-
     function start_loop (direction) {
 
       if(curr_fps == null || curr_fps <= 0) {
@@ -338,12 +382,15 @@ export class LoopController {
         frame_slider.value = Number(frame_slider.value) + direction;
       }
 
+      // play every period in interval
       loop = setInterval(play, 1000/curr_fps);
 
     };
 
     function pause_loop() {
+
       clearInterval(loop);
+
     };
 
   }
@@ -355,7 +402,9 @@ export class PlaneController {
              alpha_attribute, position_attribute,
              bounding_box, bounding_sphere,
              plane_geometry,
-             control_handler) {
+             plane_material,
+             control_handler,
+             hide_button) {
 
     control_handler.add(this);
 
@@ -366,14 +415,21 @@ export class PlaneController {
 
     let rel_para = ['theta', 'phi', 'x', 'y', 'z', 'thres'];
 
+    let mid_x = (bounding_box.min.x + bounding_box.max.x)/2;
+    let mid_y = (bounding_box.min.y + bounding_box.max.y)/2;
+    let mid_z = (bounding_box.min.z + bounding_box.max.z)/2;
+
+    // center plane at midpoint
     let plane_para = {
       theta: 0,
       phi: 0,
-      x : (bounding_box.min.x + bounding_box.max.x)/2,
-      y : (bounding_box.min.y + bounding_box.max.y)/2,
-      z : (bounding_box.min.z + bounding_box.max.z)/2,
+      x : Math.floor(mid_x*100)/100,
+      y : Math.floor(mid_y*100)/100,
+      z : Math.floor(mid_z*100)/100,
       thres : plane_radius,
     };
+
+    // set the x,y,z boundaries:
 
     plane_sliders.x.min = bounding_box.min.x;
     plane_sliders.x.max = bounding_box.max.x;
@@ -388,12 +444,13 @@ export class PlaneController {
     plane_sliders.thres.max = plane_radius;
 
     for(const para of rel_para) {
-      plane_sliders[para].value = plane_para[para];
-      plane_forms[para].value = plane_para[para];
+      // round input values to nearest 100th
+      plane_sliders[para].value = Math.floor(plane_para[para]*100)/100;
+      plane_forms[para].value = Math.floor(plane_para[para]*100)/100;
     }
 
     this.check_update = function () {
-
+      // if currently input, then stop
       for(const para of rel_para) {
         if(plane_forms[para].oninput) {return;}
         if(plane_sliders[para].oninput) {return;}
@@ -402,10 +459,11 @@ export class PlaneController {
       let update = false;
 
       for(const para of rel_para) {
+        // get the form value and slider value
+        let form_val = Math.floor(Number(plane_forms[para].value)*100)/100;
+        let slider_val = Math.floor(Number(plane_sliders[para].value)*100)/100;
 
-        let form_val = Number(plane_forms[para].value);
-        let slider_val = Number(plane_sliders[para].value);
-
+        // update to right value
         if(form_val != plane_para[para]) {
           plane_sliders[para].value = form_val;
           plane_para[para] = form_val;
@@ -420,17 +478,35 @@ export class PlaneController {
 
       }
 
-      if(update) { update_opacity(); update_plane_geometry(); }
+      // change vertices accordingly
+      if(update) { update_opacity(); update_plane_geometry(); reset_color();}
+
 
     };
 
-    function update_plane_geometry () {
 
+    this.new_opacity = function () {
+      update_opacity();
+    };
+
+
+    hide_button.onclick = function () {
+      plane_material.opacity = .25*(!plane_material.opacity);
+    };
+
+    function reset_color () {
+      control_handler.adjust_color();
+    };
+
+    function update_plane_geometry () {
+      // plane points
       let plane_pts = plane_geometry.attributes.position.array;
 
+      // convert phi and theta to radians
       let rad_phi = -plane_para.phi/180*Math.PI;
       let rad_theta = -plane_para.theta/180*Math.PI;
 
+      // create the "x" and "y" axes in spherical coordinates
       let x_axis = [plane_radius*Math.cos(rad_phi)*Math.sin(rad_theta + Math.PI/2),
                     plane_radius*Math.cos(rad_phi)*Math.cos(rad_theta + Math.PI/2),
                     plane_radius*Math.sin(rad_phi)];
@@ -439,6 +515,7 @@ export class PlaneController {
                     plane_radius*Math.cos(rad_theta),
                     0];
 
+      // new triangles
       let triangles = [ // triangle 1
                         x_axis[0], x_axis[1], x_axis[2],
                         y_axis[0], y_axis[1], y_axis[2],
@@ -450,7 +527,7 @@ export class PlaneController {
                         -x_axis[0], -x_axis[1], -x_axis[2]
                       ];
 
-
+      // translate coordinates
       for(let i = 0; i + 2 < triangles.length; i += 3) {
         plane_pts[i] = triangles[i] + plane_para.x;
         plane_pts[i+1] = triangles[i+1] + plane_para.y;
@@ -462,24 +539,28 @@ export class PlaneController {
 
     };
 
-    function update_opacity() {
+    function update_opacity () {
 
-      let phi = plane_para.phi/180*Math.PI;
-      let theta = plane_para.theta/180*Math.PI;
+      // convert phi and theta to radians
+      let rad_phi = plane_para.phi/180*Math.PI;
+      let rad_theta = plane_para.theta/180*Math.PI;
 
-      let n_i = Math.sin(phi)*Math.cos(theta);
-      let n_j = Math.sin(phi)*Math.sin(theta);
-      let n_k = Math.cos(phi);
+      // produce normal vector (i, j, k) components
+      let n_i = Math.sin(rad_phi)*Math.cos(rad_theta);
+      let n_j = Math.sin(rad_phi)*Math.sin(rad_theta);
+      let n_k = Math.cos(rad_phi);
 
       for(let i = 0; i + 2 < vertices.length; i += 3) {
-
+        // produce vector for each vertex (shifted by translation)
         let v_i = vertices[i] - plane_para.x;
         let v_j = vertices[i+1] - plane_para.y;
         let v_k = vertices[i+2] - plane_para.z;
 
+        // take dot product
         let dot_prod = n_i*v_i + n_j*v_j + n_k*v_k;
         let thres = plane_para.thres*plane_para.thres;
 
+        // see if it's within the max distance to plane
         vertex_opacity[i/3] = (dot_prod*dot_prod <= thres);
 
       }
@@ -492,7 +573,7 @@ export class PlaneController {
 }
 
 export class RotationController {
-  constructor(rotation_attribute, start, stop, control_handler) {
+  constructor(rotation_attrs, start, stop, control_handler) {
 
     control_handler.add(this);
 
@@ -500,8 +581,11 @@ export class RotationController {
 
     this.check_update = function () {
       if(!pause) {
-        rotation_attribute.x += .005;
-        rotation_attribute.y += .005;
+        // rotate all attributes that have rotation
+        for(const attr of rotation_attrs) {
+          attr.x += .005;
+          attr.y += .005;
+        }
       }
     }
 
@@ -527,6 +611,7 @@ export class DataCategoryController {
     let frame_count = null;
 
     this.check_update = function () {
+      // check for new data type input
       if(curr_data_category !== data_category_input.value) {
         curr_data_category = data_category_input.value;
         update_data_category();
@@ -535,24 +620,19 @@ export class DataCategoryController {
 
     function update_data_category () {
       if(curr_data_category != 'Temp') {
-        for(let i = 0; i < video_display.length; ++i) {
-          video_display[i].style.display = 'none';
-        }
-        for(let i = 0; i < picture_display.length; ++i) {
-          picture_display[i].style.display = 'block';
-        }
+        // only 1 frame --> picture display
+        for(const display of video_display) { display.style.display = 'none'; }
+        for(const display of picture_display) { display.style.display = 'block'; }
         frame_count = 1;
       }
       else {
-        for(let i = 0; i < video_display.length; ++i) {
-          video_display[i].style.display = 'block';
-        }
-        for(let i = 0; i < picture_display.length; ++i) {
-          picture_display[i].style.display = 'none';
-        }
+        // more than 1 frame --> video display
+        for(const display of video_display) { display.style.display = 'block'; }
+        for(const display of picture_display) { display.style.display = 'none'; }
         frame_count = vertex_data.frames_per_pt;
       }
 
+      // update data to input category
       if(curr_data_category == 'Max') { display_data = vertex_data.maxima; }
       else if(curr_data_category == 'Min') { display_data = vertex_data.minima; }
       else if(curr_data_category == 'Mean') { display_data = vertex_data.means; }
@@ -566,6 +646,7 @@ export class DataCategoryController {
     };
 
     function export_display_data () {
+      // call control handler to adjust data
       control_handler.adjust_data(display_data, frame_count);
     };
 
@@ -591,13 +672,18 @@ export class TimeStampController {
 
     this.check_update = function () {
       // read file input
-      for(let i = 0; i < stamp_input.files.length; ++i) {
-        if(!stamp_input.files[i] || processed.has(stamp_input.files[i])) {continue;}
-        let exts = get_exts(stamp_input.files[i].name);
-        for(let ext = 0; ext < exts.length; ++ext) {
-          if(stamp_exts.includes(exts[ext])) {
-            reader.readAsText(stamp_input.files[i]);
-            processed.add(stamp_input.files[i]);
+      for(const file of stamp_input.files) {
+
+        // check if file exists + already processed
+        if(!file || processed.has(file)) {continue;}
+
+        let exts = get_exts(file.name);
+
+        for(const ext of exts) {
+          // check if this is a timestamp file
+          if(stamp_exts.includes(ext)) {
+            reader.readAsText(file);
+            processed.add(file);
           }
         }
       }
@@ -618,11 +704,15 @@ export class TimeStampController {
 
     reader.onload = function (e) {
       let file_text = e.target.result;
+      // assume csv -- split at newlines and commas
       stamps = file_text.split(/[,\n]+/);
+      // if the last entry is empty, then remove
       if(stamps[stamps.length - 1] == "") { stamps.pop(); }
 
+      // display timestamp controls
       container.style.display = 'block';
 
+      // start output at zero
       time_output.value = 0;
       time_output.style.width = `${10*5}px`;
 
@@ -643,19 +733,25 @@ export class TimeStampController {
     }
 
     function start_loop (direction) {
-      let play = function () {
-        frame_slider.value = Number(frame_slider.value) + direction;
-      }
+
+      // move slider by a direction (1 or -1)
+      let play = function () {frame_slider.value = Number(frame_slider.value) + direction;}
+
+      // stores function calls
       loop = [];
+
       let ms_elapsed = 0;
+
       for(let i = curr_frame; i+1 < stamps.length; ++i) {
         ms_elapsed += (stamps[i+1] - stamps[i]);
+        // add a call with the time gap
         loop.push(setTimeout(play, 1000*ms_elapsed));
       }
+
     };
 
     function pause_loop () {
-      for(let i = 0; i < loop.length; ++i) { clearTimeout(loop[i]); }
+      for(const call of loop) { clearTimeout(call); }
       loop = [];
     }
 
@@ -674,12 +770,14 @@ export class SliderController {
 
     control_handler.add(this);
 
+    // establishes min and max
     let curr_min_val = Number(left_slider.min);
     let curr_max_val = Number(right_slider.max);
+
     let handler_called = false;
 
     this.check_update = function () {
-
+      // don't check if input
       if(left_bubble.oninput || right_bubble.oninput) { return; }
       if(left_slider.oninput || right_slider.oninput) { return; }
 
@@ -689,38 +787,46 @@ export class SliderController {
       let rght_txt_val = Number(right_bubble.value);
       let rght_rng_val = Number(right_slider.value);
 
+      // if no change, then stop
       if(left_txt_val == curr_min_val && left_rng_val == curr_min_val &&
          rght_txt_val == curr_max_val && rght_rng_val == curr_max_val) { return; }
 
+      // update to the changed input value
+
       if(left_txt_val != curr_min_val) {
-       curr_min_val = left_txt_val;
-       left_slider.value = left_txt_val;
+        curr_min_val = left_txt_val;
+        left_slider.value = left_txt_val;
       }
 
       else if(left_rng_val != curr_min_val) {
-       curr_min_val = left_rng_val;
-       left_bubble.value = left_rng_val;
+        curr_min_val = left_rng_val;
+        left_bubble.value = left_rng_val;
       }
 
       if(rght_txt_val != curr_max_val) {
-       curr_max_val = rght_txt_val;
-       right_slider.value = rght_txt_val;
+        curr_max_val = rght_txt_val;
+        right_slider.value = rght_txt_val;
       }
 
       else if(rght_rng_val != curr_max_val) {
-       curr_max_val = rght_rng_val;
-       right_bubble.value = rght_rng_val;
+        curr_max_val = rght_rng_val;
+        right_bubble.value = rght_rng_val;
       }
 
+      // update the sliders and color extrema
+
       update_sliders();
+
       export_extrema();
 
     }
 
     this.new_extrema = function (min, max) {
 
+      // prevents us from updating ourselves after calling
       if(handler_called) { handler_called = false; return; }
 
+      // set the boundaries based on input para
       left_slider.min = Math.floor(min);
       right_slider.max = Math.ceil(max);
 
@@ -732,6 +838,8 @@ export class SliderController {
 
       left_bubble.value = left_slider.min;
       right_bubble.value = right_slider.max;
+
+      // divide the slider in half
 
       let md_pt = Math.floor((curr_min_val + curr_max_val)/2);
 
@@ -747,11 +855,15 @@ export class SliderController {
       right_slider.style.width = '50%';
 			left_slider.style.width = '50%';
 
+      // 10 pixels per digit
       let max_num_width = 10*(right_slider.max.length);
+
+      // if it's under 5% of the screen, then keep that pixel
 			if(100*(max_num_width/window.innerWidth) < 5) {
 				right_bubble.style.width = `${max_num_width}px`;
 				left_bubble.style.width = `${max_num_width}px`;
 			}
+      // else, upper bound by 5%
       else {
         right_bubble.style.width = `${window.innerWidth*.05}`;
 				left_bubble.style.width = `${window.innerWidth*.05}`;
@@ -787,7 +899,6 @@ export class SliderController {
     	let upper_max = Math.floor(right_slider.max);
     	let upper_width = parseFloat(right_slider.style.width);
 
-      // kind of arbitrary -- we should consider fixing
       if(upper_max - lower_min < 3) { return; }
 
       // 100% width = (upper_max - lower_min)
@@ -797,6 +908,8 @@ export class SliderController {
     	let right_shift_factor = 1;
     	let left_shift_factor = 1;
 
+      // if you have over 1% left between the two sliders, shift 1%
+
     	if(upper_min + kelvin_per_pct_width < upper_max) { right_shift_factor = kelvin_per_pct_width; }
     	if(lower_max - kelvin_per_pct_width > lower_min) { left_shift_factor = kelvin_per_pct_width; }
 
@@ -805,6 +918,9 @@ export class SliderController {
 
       right_shift_factor = Math.floor(right_shift_factor);
       left_shift_factor = Math.floor(left_shift_factor);
+
+      // shift the boundaries of the left and right slider
+      // --> new min/max
 
     	if(lower_bound >= lower_max && upper_min + right_shift_factor < upper_max) {
     		upper_min += right_shift_factor;
@@ -820,6 +936,7 @@ export class SliderController {
     		if(lower_bound >= lower_max) { lower_bound -= left_shift_factor; }
     	}
 
+
       left_slider.value = lower_bound;
       right_slider.value = upper_bound;
 
@@ -834,6 +951,8 @@ export class SliderController {
 
       left_slider.style.width = `${lower_width}%`;
 		  right_slider.style.width = `${100 - lower_width}%`;
+
+      // shift bubble to the right fraction of the range
 
       let offset = parseFloat(left_bubble.style.width)/(window.innerWidth)*100;
   		left_bubble.style.left = `${(lower_bound-lower_min)/kelvin_per_pct_width - offset}%`;

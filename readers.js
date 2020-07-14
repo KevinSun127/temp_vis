@@ -1,7 +1,7 @@
 import {STLLoader} from './node_modules/three/examples/jsm/loaders/STLLoader.js';
 import * as THREE from './node_modules/three/build/three.module.js';
 
-
+// converts UTF-8 code to char
 function code_to_char (utf_code) {
   return String.fromCharCode(utf_code);
 };
@@ -30,9 +30,11 @@ class PTLoader {
 
         if(curr_pos < file_arr.length) {curr_char = code_to_char(file_arr[curr_pos]);}
 
+        // increment forward if you're on the same entry
         if(curr_pos < file_arr.length && !temp_delim.includes(curr_char)
         && !point_delim.includes(curr_char)) {++curr_pos; continue;}
 
+        // get the slice of the file text
         let entry = Number(slice_arr_buff(file_arr, prev_pos, curr_pos));
 
         char_arr.push(entry);
@@ -41,14 +43,18 @@ class PTLoader {
           curr_char = code_to_char(file_arr[++curr_pos]);
         }
 
+        // get to the next entry
         prev_pos = curr_pos;
         ++curr_pos;
      }
 
-
+      // if it's empty, then return empty geometry
   		if(char_arr.length == 0) { return geometry; }
+
+      // the last entry --> pop
   		if(char_arr[char_arr.length - 1] == "") {char_arr.pop();}
 
+      // initialize position attribute with this
       let vertices = new Float32Array(char_arr);
   		geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
 
@@ -72,42 +78,42 @@ export class GeometryParser extends FileReader {
 
     this.onload = function (e) {
 
-  			if(this._is_stl) {
-  				object.geometry = stl_loader.parse(e.target.result);
-  				object.material = new THREE.MeshBasicMaterial(
-  					{ vertexColors: THREE.VertexColors }
-  				);
-  			}
+        // use appropriate parser for stl or point cloud
+  			if(this._is_stl) { object.geometry = stl_loader.parse(e.target.result); }
+  			else { object.geometry = pt_loader.parse(new Uint8Array(e.target.result)); }
 
-  			else {
-          let file_arr = new Uint8Array(e.target.result);
-  				object.geometry = pt_loader.parse(file_arr);
-  				object.material = new THREE.ShaderMaterial(
-  					{
-              uniforms : { pt_size: {value: 1.0} },
-              vertexShader:   document.getElementById( 'vertexshader' ).textContent,
-              fragmentShader: document.getElementById( 'fragmentshader' ).textContent,
-              transparent:    true
-            }
-  				);
-  			}
+        // attach dynamic shading material
+        object.material = new THREE.ShaderMaterial(
+          {
+            uniforms : { pt_size: {value: 1.0} },
+            vertexShader:   document.getElementById( 'vertexshader' ).textContent,
+            fragmentShader: document.getElementById( 'fragmentshader' ).textContent,
+            transparent:  true
+          }
+        );
 
+        // create new color/alpha attribute
   			let colors = new Float32Array(object.geometry.attributes.position.array.length);
         let alphas = new Float32Array(object.geometry.attributes.position.array.length/3);
+        // all points are opaque
         for(let i = 0; i < alphas.length; ++i) {alphas[i] = 1;}
 
   			object.geometry.setAttribute('color',  new THREE.Float32BufferAttribute( colors, 3 ) );
         object.geometry.setAttribute('alpha',  new THREE.Float32BufferAttribute( alphas, 1 ) );
 
+        // re-center at the center of mass
   			object.geometry.center();
 
+        // add points or mesh depending on object type
   			if(this._is_stl) {scene.add(new THREE.Mesh(object.geometry, object.material));}
   			else {scene.add(new THREE.Points(object.geometry, object.material));}
 
+        // store attribute references
         color.attribute = object.geometry.attributes.color;
         position.attribute = object.geometry.attributes.position;
         alpha.attribute = object.geometry.attributes.alpha;
 
+        // initialize frame reader
         temp_reader.parser = new TempParser(color.attribute.array, position.attribute.array,
                                             vertex_data, output_writer, output_link);
 
@@ -144,17 +150,23 @@ export class TempParser extends FileReader {
 			 let num_frames = 0;
        let first_line_char = code_to_char(file_arr[idx]);
 
+       // until we hit the next "point"
 			 while(idx < file_arr.length && !point_delim.includes(first_line_char)) {
+         // iterate through the first line, keeping track of the nubmer of entries
 				 if(temp_delim.includes(first_line_char)) { ++num_frames; }
+         // check if the next char is a delimiter for a new point
          first_line_char = code_to_char(file_arr[++idx]);
 			 }
 
+       // if no entries, don't read file
 			 if(num_frames == 0) { return; }
 
+       // take the last char
        first_line_char = code_to_char(file_arr[idx - 1]);
-
+       // if it's not empty, then include that entry
 			 num_frames += (!temp_delim.includes(first_line_char));
 
+       // relevant data to read from the file
        vertex_data.frames_per_pt = num_frames;
 			 vertex_data.frames = new Float32Array(num_frames*num_pts);
 			 vertex_data.means = new Float32Array(num_pts);
@@ -177,29 +189,34 @@ export class TempParser extends FileReader {
 
 				while(curr_pos <= file_arr.length) {
 
+          // read the next char if we're not at the end
           if(curr_pos < file_arr.length) {curr_char = code_to_char(file_arr[curr_pos]);}
-
+          // check if it's the end of an entry/line
 					if(curr_pos < file_arr.length && !temp_delim.includes(curr_char)
           && !point_delim.includes(curr_char)) {++curr_pos; continue;}
 
+          // obtain entry
 					let entry = Number(slice_arr_buff(file_arr, prev_pos, curr_pos));
 
 					vertex_data.frames[frame++] = entry;
 
           if(entry == entry) {
+            // see if it's the min, max
             if(entry < buffer_min) { buffer_min = entry; }
   					if(entry > buffer_max) { buffer_max = entry; }
             buffer[buff_frame++] = entry;
+            // linear average
             buffer_mean += entry/vertex_data.frames_per_pt;
           }
 
 					if(point_delim.includes(curr_char) || buff_frame == vertex_data.num_temps) {
-
+             // record buffer data
 						 vertex_data.means[pt] = buffer_mean;
 						 vertex_data.minima[pt] = buffer_min;
 						 vertex_data.maxima[pt] = buffer_max;
              vertex_data.range[pt] = buffer_max - buffer_min;
 
+             // calculate standard deviation
 			 			 let variance = 0;
 			 			 for(let j = 0; j < buffer.length; ++j) {
 							 variance += ( (buffer[j] - buffer_mean)*
@@ -214,6 +231,7 @@ export class TempParser extends FileReader {
 
 					}
 
+          // go to next entry
 					while(temp_delim.includes(curr_char) && curr_pos < file_arr.length) {
             curr_char = code_to_char(file_arr[++curr_pos]);
           }
