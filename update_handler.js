@@ -111,15 +111,18 @@ export class FileHandler {
 
     // extensiosn for geometry and temperature files
     let geo_exts = ['stl', 'pt'];
-    let temp_exts = ['temp'];
+    let temp_exts = ['frm'];
 
     this.load_files = function () {
+
       for(const file of file_input.files) {
         // check if valid file or if we've already processed it
         if(!file || processed.has(file)) {continue;}
 
         // obtain extensions
         let exts = get_exts(file.name);
+
+        const no_change = processed.size;
 
         for(const ext of exts) {
           // reading geometry file:
@@ -131,6 +134,8 @@ export class FileHandler {
             // add to processed
             processed.add(file);
 
+            return;
+
           }
           // reading temperature file:
           else if(temp_reader.parser != null && temp_exts.includes(ext)) {
@@ -140,18 +145,17 @@ export class FileHandler {
             processed.add(file);
 
           }
-          else if(temp_reader.parser == null && temp_exts.includes(ext)) {
-
-            alert('Load Geometry File First.');
-
-          }
-          else {
-
-            alert('Unsupported File Format. Supported extensions: stl, temp, pt');
-
-          }
         }
+
+        if(no_change == processed.size) {alert('Supported Extensions: pt, frm, stl');}
+        else if(temp_reader.parser == null) {alert('Load Geometry File First');}
+
+        processed.add(file);
+
       }
+
+
+
     };
 
     function get_exts(filename) {
@@ -186,16 +190,11 @@ export class FileHandler {
 
 
     function output_file () {
-      // check if output writer has been loaded
-      if(!(temp_reader.loaded != null &&
-          output_writer.loaded != null)) {alert('Load Geometry and Temperature Files First.');}
-      else {
-        // call output writer to turn on link
-        output_link.href = output_writer.writer.generate_link();
-        // display the link
-        output_link.style.display = 'block';
-        output_link.download = 'output.txt';
-      }
+      // call output writer to turn on link
+      output_link.href = output_writer.writer.generate_link();
+      // display the link
+      output_link.style.display = 'block';
+      output_link.download = 'output.txt';
     };
 
     // getters for all attributes

@@ -491,7 +491,7 @@ export class PlaneController {
 
 
     hide_button.onclick = function () {
-      plane_material.opacity = .25*(!plane_material.opacity);
+      plane_material.opacity = .5*(!plane_material.opacity);
     };
 
     function reset_color () {
@@ -663,7 +663,7 @@ export class TimeStampController {
 
     let reader = new FileReader();
     let processed = new Set();
-    let stamp_exts = ['csv'];
+    let stamp_exts = ['ts'];
     let curr_time = null;
     let curr_frame = null;
     let stamps = [];
@@ -677,15 +677,19 @@ export class TimeStampController {
         // check if file exists + already processed
         if(!file || processed.has(file)) {continue;}
 
+        processed.add(file);
+
         let exts = get_exts(file.name);
 
         for(const ext of exts) {
           // check if this is a timestamp file
           if(stamp_exts.includes(ext)) {
             reader.readAsText(file);
-            processed.add(file);
+            return;
           }
         }
+
+        alert('Timestamp files should have a .ts extension');
       }
 
       // check frame change
