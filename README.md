@@ -6,7 +6,7 @@ VIS-4 is a data visulation tool that enables you to visualize video data on obje
 ## File Formatting
 VIS-4 supports 3D objects (add the extension in paranthesis) in the form of:
 1. CSV point clouds (.pt) 
-2. [STL] (https://en.wikipedia.org/wiki/STL_(file_format)) geometries (.stl) 
+2. <a href="https://en.wikipedia.org/wiki/STL_(file_format)">STL</a> objects (.stl) 
 
 VIS-4 has two custom file formats: <br>
 1. Frame Sequences (.frm)
