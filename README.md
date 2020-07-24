@@ -20,13 +20,15 @@ Each row is a vector of frames associated with a vertex. These should appear in 
 File contains timestamps across the full range of frames, in a CSV format. 
 This file should be just one row -- a vector with timestamps in seconds marking each frame. 
 
+### Note: Memory Limitations
+VIS-4 supports files under 1GB. Files beyond the memory limit may fail to render. 
+
 ## Getting Started
 1. Open the website hosted <a href="https://kevinsun127.github.io/test_site/" target="_blank">here</a>.
 2. Upload geometry file (.stl or .pt)
 3. Upload frame sequence file (.frm)
 
 You'll now be free to adjust your view of the object however you see fit. 
-
 
 ## Supported Features
 
@@ -44,5 +46,7 @@ VIS-4 supports customized color gradients. You can select among the pre-defined 
 
 ### Layer Selection
 VIS-4 employs a spherical coordinate system that can visualize a slice of an object. You can move a three-dimensional plane in space, using a levy of parameters -- including translating the coordinate system, rotating the axes, and limit the maximum distance from points to the plane. 
+
+
 
 
